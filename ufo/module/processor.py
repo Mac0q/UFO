@@ -14,12 +14,12 @@ from .. import utils
 from ..agent.agent import AppAgent, HostAgent
 from ..agent.basic import MemoryItem
 from ..automator.ui_control import utils as control
+from ..automator.ui_control.control_filter import ControlFilterFactory
+
 from ..automator.ui_control.screenshot import PhotographerFacade
 from ..config.config import Config
 from . import interactor
 
-# Lazy import the control_filter factory to aviod long loading time.
-control_filter = utils.LazyImport("..automator.ui_control.control_filter")
 
 configs = Config.get_instance().config_data
 BACKEND = configs["CONTROL_BACKEND"]
@@ -338,7 +338,9 @@ class HostAgentProcessor(BaseProcessor):
 
         self._prompt_message = self.HostAgent.message_constructor([self._desktop_screen_url], request_history, action_history, 
                                                                                                   self._desktop_windows_info, plan, self.request)
-        self.request_logger.debug(json.dumps({"step": self._step, "prompt": self._prompt_message, "status": ""}))
+        
+        log = json.dumps({"step": self._step, "prompt": self._prompt_message, "control_items": self._desktop_windows_info, "filted_control_items": self._desktop_windows_info, "status": ""})
+        self.request_logger.debug(log)
         return self._prompt_message
     
     
@@ -350,7 +352,8 @@ class HostAgentProcessor(BaseProcessor):
         try:
             self._response, self._cost = self.HostAgent.get_response(self._prompt_message, "HOSTAGENT", use_backup_engine=True)
         except Exception as e:
-            log = json.dumps({"step": self._step, "status": str(e), "prompt": self._prompt_message})
+            error_trace = traceback.format_exc()
+            log = json.dumps({"step": self._step, "status": str(error_trace), "prompt": self._prompt_message})
             utils.print_with_color("Error occurs when calling LLM: {e}".format(e=str(e)), "red")
             self.request_logger.info(log)
             self._status = "ERROR"
@@ -506,7 +509,7 @@ class AppAgentProcessor(BaseProcessor):
             self._args = None
             self._image_url = []
             self._control_reannotate = None
-            self.control_filter_factory = control_filter.ControlFilterFactory()
+            self.control_filter_factory = ControlFilterFactory()
 
             
         def print_step_info(self):
@@ -591,10 +594,12 @@ class AppAgentProcessor(BaseProcessor):
             if 'icon' in control_filter_type_lower:                
                 model_icon = self.control_filter_factory.create_control_filter('icon', configs["CONTROL_FILTER_MODEL_ICON_NAME"])
 
-                cropped_icons_dict = self.photographer.get_cropped_icons_dict(self._app_window, self._control_info)
+                cropped_icons_dict = self.photographer.get_cropped_icons_dict(self._app_window, self._annotation_dict)
                 model_icon.control_filter(filtered_control_info, self._control_info, cropped_icons_dict, keywords, configs["CONTROL_FILTER_TOP_K_ICON"])
 
+
             return filtered_control_info
+
             
             
         def get_prompt_message(self):
@@ -637,7 +642,9 @@ class AppAgentProcessor(BaseProcessor):
             self._prompt_message = self.AppAgent.message_constructor(examples, tips, external_knowledge_prompt, self._image_url, request_history, action_history, 
                                                                                 filtered_control_info, prev_plan, self.request, configs["INCLUDE_LAST_SCREENSHOT"])
             
-            self.request_logger.debug(json.dumps({"step": self.global_step, "prompt": self._prompt_message, "status": ""}))
+            log = json.dumps({"step": self.global_step, "prompt": self._prompt_message, "control_items": self._control_info, 
+                              "filted_control_items": filtered_control_info, "status": ""})
+            self.request_logger.debug(log)
 
 
         def get_response(self):
@@ -648,12 +655,13 @@ class AppAgentProcessor(BaseProcessor):
                 self._response, self._cost = self.AppAgent.get_response(self._prompt_message, "APPAGENT", use_backup_engine=True)
             except Exception as e:
                 error_trace = traceback.format_exc()
-                log = json.dumps({"step": self.global_step, "status": str(error_trace), "prompt": self._prompt_message})
+                log = json.dumps({"step": self.global_step, "prompt": self._prompt_message, "status": str(error_trace)})
                 utils.print_with_color("Error occurs when calling LLM: {e}".format(e=str(error_trace)), "red")
                 self.request_logger.info(log)
                 self._status = "ERROR"
                 time.sleep(configs["SLEEP_TIME"])
                 return
+            
             
         def parse_response(self):
             """
@@ -698,6 +706,7 @@ class AppAgentProcessor(BaseProcessor):
                 # Whether to proceed with the action.
                 should_proceed = True
 
+                # Safe guard for the action.
                 if self._status.upper() == "PENDING" and configs["SAFE_GUARD"]:
                     should_proceed = self._safe_guard_judgement(self._action, self._control_text)
                     
@@ -707,6 +716,7 @@ class AppAgentProcessor(BaseProcessor):
                         self._results = ""
                 else:
                     self._results = "The user decide to stop the task."
+
                     return
 
 
@@ -719,7 +729,7 @@ class AppAgentProcessor(BaseProcessor):
                     self._control_reannotate = None
 
 
-            except Exception as e:
+            except Exception:
                 error_trace = traceback.format_exc()
                 utils.print_with_color(f"Error Occurs at action execution in AppAgent at step {self.global_step}", "red")
                 utils.print_with_color(str(error_trace), "red")
