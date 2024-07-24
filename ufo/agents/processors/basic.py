@@ -267,6 +267,9 @@ class BaseProcessor(ABC):
         :param window: The active window.
         """
         self.context.set(ContextNames.APPLICATION_WINDOW, window)
+        
+    # def file_instance(self):
+    #     if s
 
     @property
     def round_step(self) -> int:

@@ -105,6 +105,8 @@ class BaseRound(ABC):
 
             self.state = self.agent.state.next_state(self.agent)
             self.agent = self.agent.state.next_agent(self.agent)
+            # print(self.state)
+            # print(self.agent)
             self.agent.set_state(self.state)
 
             # If the subtask ends, capture the last snapshot of the application.
@@ -360,6 +362,7 @@ class BaseSession(ABC):
         if self._should_evaluate and not self.is_error():
             self.evaluation()
 
+        self.quit()
         self.print_cost()
 
     @abstractmethod
@@ -368,6 +371,13 @@ class BaseSession(ABC):
         Create a new round.
         """
         pass
+    
+    # @abstractmethod
+    def quit(self):
+        """
+        Quit the Application.
+        """
+        print('try to quit the application')
 
     @abstractmethod
     def next_request(self) -> str:

@@ -2,7 +2,10 @@
 # Licensed under the MIT License.
 
 import os
+import time
 from typing import List
+from ufo.automator.ui_control.inspector import ControlInspectorFacade
+import win32com.client
 
 from ufo import utils
 from ufo.agents.states.app_agent_state import ContinueAppAgentState
@@ -102,8 +105,8 @@ class Session(BaseSession):
         """
         super().run()
         # Save the experience if the user asks so.
-        if interactor.experience_asker():
-            self.experience_saver()
+        # if interactor.experience_asker():
+        #     self.experience_saver()
 
     def _init_context(self) -> None:
         """
@@ -147,13 +150,14 @@ class Session(BaseSession):
         """
 
         if self.total_rounds == 0:
-            utils.print_with_color(interactor.WELCOME_TEXT, "cyan")
+            # utils.print_with_color(interactor.WELCOME_TEXT, "cyan")
             return interactor.first_request()
         else:
-            request, iscomplete = interactor.new_request()
-            if iscomplete:
-                self._finish = True
-            return request
+            # request, iscomplete = interactor.new_request()
+            # print(request)
+            # if iscomplete:
+            self._finish = True
+            return 'N'
 
     def request_to_evaluate(self) -> bool:
         """
@@ -163,6 +167,29 @@ class Session(BaseSession):
         request_memory = self._host_agent.blackboard.requests
         return request_memory.to_json()
 
+    def quit(self):
+        try:
+            control_inspector = ControlInspectorFacade("uia")
+            control_list = control_inspector.find_control_elements_in_descendants(self.application_window)
+            for control_item in control_list:
+                try:
+                    if control_item.friendly_class_name() == "Dialog" and control_item.window_text() not in  ["Navigation","Help","Editor","Accessibility","Styles"]:
+                        print(f"finding dialog {control_item.window_text()}")
+                        control_item.close()
+                    # if self._context.get(ContextNames..APPLICATION_ROOT_NAME) == 'WINWORD.EXE':
+                        # self.app_instance = win32com.client.gencache.EnsureDispatch(self.app_root_name)
+                        # file_path = self.context.get("FILE_PATH", r"C:\Users\ufo\Documents\test.docx")
+                        # self.file_instance = self.app_instance.Documents.Open(file_path)                   
+                except Exception as e:
+                    print(f"Failed to close dialog: {e}")
+            self.client = win32com.client.Dispatch("Word.Application")
+            for doc in self.client.Documents:
+                doc.Close(False)  # Argument False indicates not to save changes
+            self.application_window.close()
+        except Exception as e:
+            print('Error while closing word:', e)
+        finally:
+            time.sleep(configs["SLEEP_TIME"])
 
 class FollowerSession(BaseSession):
     """

@@ -170,7 +170,7 @@ class AppAgentProcessor(BaseProcessor):
         if configs["LOG_XML"]:
 
             self._save_to_xml()
-
+    
     def get_control_info(self) -> None:
         """
         Get the control information.

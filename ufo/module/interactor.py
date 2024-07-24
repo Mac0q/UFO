@@ -30,10 +30,10 @@ def new_request() -> Tuple[str, bool]:
     :return: The new request and whether the conversation is complete.
     """
 
-    utils.print_with_color(
-        """Please enter your new request. Enter 'N' for exit.""", "cyan"
-    )
-    request = input()
+    # utils.print_with_color(
+    #     """Please enter your new request. Enter 'N' for exit.""", "cyan"
+    # )
+    request = 'N'
     if request.upper() == "N":
         complete = True
     else:
@@ -93,7 +93,7 @@ def sensitive_step_asker(action, control_text) -> bool:
     )
 
     while True:
-        user_input = input().upper()
+        user_input = "Y"
 
         if user_input == "Y":
             return True
