@@ -35,3 +35,4 @@ scripts/*
 !vectordb/demonstration/example.yaml
 
 .vscode
+new_samples*

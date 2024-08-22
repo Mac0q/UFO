@@ -4,6 +4,8 @@
 
 from functools import wraps
 import json
+import os
+import logging
 import time
 import traceback
 from abc import ABC, abstractmethod
@@ -21,6 +23,30 @@ from ufo.module.context import Context, ContextNames
 
 configs = Config.get_instance().config_data
 BACKEND = configs["CONTROL_BACKEND"]
+
+def initialize_logger(log_path: str, log_filename: str) -> logging.Logger:
+    """
+    Initialize logging.
+    log_path: The path of the log file.
+    log_filename: The name of the log file.
+    return: The logger.
+    """
+    # Code for initializing logging
+    logger = logging.Logger(log_filename)
+
+    if not configs["PRINT_LOG"]:
+        # Remove existing handlers if PRINT_LOG is False
+        logger.handlers = []
+
+    log_file_path = os.path.join(log_path, log_filename)
+    file_handler = logging.FileHandler(log_file_path, encoding="utf-8")
+    formatter = logging.Formatter("%(message)s")
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    logger.setLevel(configs["LOG_LEVEL"])
+
+    return logger
+
 
 
 class BaseProcessor(ABC):
@@ -65,6 +91,72 @@ class BaseProcessor(ABC):
         }
 
         self._time_cost = {}
+        self._time_logger = initialize_logger(self.log_path,'time.log')
+
+    # def process(self) -> None:
+    #     """
+    #     Process a single step in a round.
+    #     The process includes the following steps:
+    #     1. Print the step information.
+    #     2. Capture the screenshot.
+    #     3. Get the control information.
+    #     4. Get the prompt message.
+    #     5. Get the response.
+    #     6. Update the cost.
+    #     7. Parse the response.
+    #     8. Execute the action.
+    #     9. Update the memory.
+    #     10. Update the step and status.
+    #     11. Update the step.
+    #     """
+
+    #     # Step 1: Print the step information.
+    #     self.print_step_info()
+
+    #     # Step 2: Capture the screenshot.
+    #     self.capture_screenshot()
+
+    #     # Step 3: Get the control information.
+    #     self.get_control_info()
+
+    #     # Step 4: Get the prompt message.
+    #     self.get_prompt_message()
+
+    #     # Step 5: Get the response.
+    #     self.get_response()
+
+    #     if self.is_error():
+    #         return
+
+    #     # Step 6: Update the context.
+    #     self.update_cost()
+
+    #     # Step 7: Parse the response, if there is no error.
+    #     self.parse_response()
+
+    #     if self.is_error() or self.is_paused():
+    #         # If the session is pending, update the step and memory, and return.
+    #         if self.is_pending():
+    #             self.update_step()
+    #             self.update_memory()
+
+    #         return
+
+    #     # Step 8: Execute the action.
+    #     self.execute_action()
+
+    #     # Step 9: Update the memory.
+    #     self.update_memory()
+
+    #     # Step 10: Update the status.
+    #     self.update_status()
+
+    #     # Step 11: Update the context.
+    #     self.update_step()
+
+    def update_time_log(self,step_name: str, start_time: float, end_time: float) -> None:
+        print(f"{step_name} took {end_time - start_time:.4f} seconds")
+        self._step_time_cnts[step_name] = end_time - start_time
 
     def process(self) -> None:
         """
@@ -83,49 +175,103 @@ class BaseProcessor(ABC):
         11. Update the step.
         """
 
+        self._step_time_cnts = {
+            "agent_name": self.__class__.__name__
+        }
+
         # Step 1: Print the step information.
         self.print_step_info()
 
         # Step 2: Capture the screenshot.
+        start_time = time.time()
+        start_keys = self._step_time_cnts.keys()
         self.capture_screenshot()
+        end_keys = self._step_time_cnts.keys()
+        capture_keys = [k for k in end_keys if k not in start_keys]
+        self._step_time_cnts["capture detail times"] = {k:v for k,v in self._step_time_cnts.items() if k in capture_keys}
+        end_time = time.time()
+        self.update_time_log("Capture screenshot", start_time, end_time)
 
         # Step 3: Get the control information.
+        start_time = time.time()
+        start_keys = self._step_time_cnts.keys()
         self.get_control_info()
+        end_keys = self._step_time_cnts.keys()
+        control_keys = [k for k in end_keys if k not in start_keys]
+        self._step_time_cnts["control detail times"] = {k:v for k,v in self._step_time_cnts.items() if k in control_keys}
+        end_time = time.time()
+        self.update_time_log("Get control information", start_time, end_time)
 
         # Step 4: Get the prompt message.
+        start_time = time.time()
         self.get_prompt_message()
+        end_time = time.time()
+        self.update_time_log("Get prompt message", start_time, end_time)
 
         # Step 5: Get the response.
+        start_time = time.time()
         self.get_response()
+        end_time = time.time()
+        self.update_time_log("Get response", start_time, end_time)
 
         if self.is_error():
             return
 
         # Step 6: Update the context.
+        start_time = time.time()
         self.update_cost()
+        end_time = time.time()
+        self.update_time_log("Update cost", start_time, end_time)
 
         # Step 7: Parse the response, if there is no error.
+        start_time = time.time()
         self.parse_response()
+        end_time = time.time()
+        self.update_time_log("Parse response", start_time, end_time)
 
         if self.is_error() or self.is_paused():
             # If the session is pending, update the step and memory, and return.
             if self.is_pending():
+                start_time = time.time()
                 self.update_step()
+                end_time = time.time()
+                self.update_time_log("Update step (pending)", start_time, end_time)
+
+                start_time = time.time()
                 self.update_memory()
+                end_time = time.time()
+                self.update_time_log("Update memory (pending)", start_time, end_time)
 
             return
 
         # Step 8: Execute the action.
+        start_time = time.time()
         self.execute_action()
+        end_time = time.time()
+        self.update_time_log("Execute action", start_time, end_time)
 
         # Step 9: Update the memory.
+        start_time = time.time()
         self.update_memory()
+        end_time = time.time()
+        self.update_time_log("Update memory", start_time, end_time)
 
         # Step 10: Update the status.
+        start_time = time.time()
         self.update_status()
+        end_time = time.time()
+        self.update_time_log("Update status", start_time, end_time)
 
         # Step 11: Update the context.
+        start_time = time.time()
         self.update_step()
+        end_time = time.time()
+        self.update_time_log("Update step", start_time, end_time)
+
+        # log the time consume
+        # init the logger of timer and log the time consume
+        self._time_logger.info(json.dumps(self._step_time_cnts))
+
 
     def resume(self) -> None:
         """
