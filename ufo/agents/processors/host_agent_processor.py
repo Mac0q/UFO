@@ -50,6 +50,7 @@ class HostAgentProcessor(BaseProcessor):
             ),
             "magenta",
         )
+        # print(self.request)
 
     @BaseProcessor.method_timer
     def capture_screenshot(self) -> None:
