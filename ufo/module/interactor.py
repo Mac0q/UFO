@@ -53,12 +53,12 @@ def experience_asker() -> bool:
         "magenta",
     )
 
-    ans = input()
+    # ans = input()
 
-    if ans.upper() == "Y":
-        return True
-    else:
-        return False
+    # if ans.upper() == "Y":
+    #     return True
+    # else:
+    return False
 
 
 def question_asker(question: str, index: int) -> str:
@@ -74,7 +74,7 @@ def question_asker(question: str, index: int) -> str:
         "cyan",
     )
 
-    return input()
+    return 'N'
 
 
 def sensitive_step_asker(action, control_text) -> bool:
