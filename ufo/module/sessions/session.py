@@ -453,8 +453,7 @@ class BatchSession(BaseSession):
         Check if the session should be evaluated.
         :return: True if the session should be evaluated, False otherwise.
         """
-        request_memory = self._host_agent.blackboard.requests
-        return request_memory.to_json()
+        return self.plan_reader.get_task()
 
     def quit(self):
         try:
